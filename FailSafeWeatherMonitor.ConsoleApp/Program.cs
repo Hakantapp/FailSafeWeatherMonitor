@@ -12,7 +12,14 @@ internal class Program
 
         var databaseConfiguration = new WeatherDatabaseConfiguration();
         using var dbContext = databaseConfiguration.CreateDbContext(Array.Empty<string>());
-    }
-}
 
-       
+        var weatherFileImporter = new WeatherFileImporter(dbContext);
+
+        string filePath = Path.Combine(AppContext.BaseDirectory,
+            "ImportedFiles",
+            "weather_data (1).csv");
+
+        weatherFileImporter.ImportWeatherDataFromFile(filePath);
+    }
+
+}    
