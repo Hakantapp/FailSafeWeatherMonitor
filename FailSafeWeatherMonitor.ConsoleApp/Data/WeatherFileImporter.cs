@@ -1,15 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Text;
+﻿
 using System.Globalization;
 using FailSafeWeatherMonitor.ConsoleApp.Entities;
-using System.Linq.Expressions;
 using FailSafeWeatherMonitor.ConsoleApp.Services;
-
 namespace FailSafeWeatherMonitor.ConsoleApp.Data;
 
-public class WeatherFileImporter(WeatherDbContext _db)
+public class WeatherFileImporter(WeatherDataService _weatherDataService)
 {
     public void ImportWeatherDataFromFile(string filePath)
     {
@@ -31,7 +26,8 @@ public class WeatherFileImporter(WeatherDbContext _db)
 
                 if (weatherDataPoint is not null)
                 {
-                    if (IsDuplicate(weatherDataPoint, validWeatherDataPoints))
+                    if (_weatherDataService.IsDuplicate(
+                        weatherDataPoint, validWeatherDataPoints))
                     {
                         duplicateCount++;
                         continue;
@@ -42,7 +38,7 @@ public class WeatherFileImporter(WeatherDbContext _db)
             }
 
             WriteErrorLog(errors);
-            SaveWeatherData(validWeatherDataPoints);
+            _weatherDataService.SaveWeatherData(validWeatherDataPoints);
 
             Console.WriteLine($"Importerade mätningar: {validWeatherDataPoints.Count}");
             Console.WriteLine($"Förkastade mätningar: {errors.Count}");
@@ -54,9 +50,8 @@ public class WeatherFileImporter(WeatherDbContext _db)
         }
     }
 
-
     private bool TryCreateWeatherDataPoint(string line,
-    out WeatherDataPoint? weatherDataPoint)
+        out WeatherDataPoint? weatherDataPoint)
     {
         weatherDataPoint = null;
 
@@ -119,23 +114,5 @@ public class WeatherFileImporter(WeatherDbContext _db)
     private void WriteErrorLog(List<string> errors)
     {
         File.WriteAllLines("bad_data.log", errors);
-    }
-
-    private bool IsDuplicate(WeatherDataPoint weatherDataPoint,
-        List<WeatherDataPoint> validWeatherDataPoints)
-    {
-        return _db.WeatherDataPoints.Any(w =>
-            w.StationName == weatherDataPoint.StationName &&
-            w.Timestamp == weatherDataPoint.Timestamp)
-            ||
-            validWeatherDataPoints.Any(w =>
-            w.StationName == weatherDataPoint.StationName &&
-            w.Timestamp == weatherDataPoint.Timestamp);
-    }
-
-    private void SaveWeatherData(List<WeatherDataPoint> validWeatherDataPoints)
-    {
-        _db.WeatherDataPoints.AddRange(validWeatherDataPoints);
-        _db.SaveChanges();
     }
 }

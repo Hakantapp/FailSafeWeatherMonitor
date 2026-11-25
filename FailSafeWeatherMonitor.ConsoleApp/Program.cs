@@ -14,7 +14,9 @@ internal class Program
         var databaseConfiguration = new WeatherDatabaseConfiguration();
         using var dbContext = databaseConfiguration.CreateDbContext(Array.Empty<string>());
 
-        var weatherFileImporter = new WeatherFileImporter(dbContext);
+        var weatherDataService = new WeatherDataService(dbContext);
+
+        var weatherFileImporter = new WeatherFileImporter(weatherDataService);
 
         string filePath = Path.Combine(AppContext.BaseDirectory,
             "ImportedFiles",
@@ -35,6 +37,17 @@ internal class Program
             Console.WriteLine($"Temperatur: {weatherDataPoint.Temperature} °C");
             Console.WriteLine($"Luftfuktighet: {weatherDataPoint.Humidity} %");
             Console.WriteLine($"Datakälla: {weatherDataPoint.DataSource}");
+
+            if (weatherDataService.IsDuplicate(weatherDataPoint))
+            {
+                Console.WriteLine("Vädermätningen finns redan i databasen.");
+            }
+            else
+            {
+                weatherDataService.SaveWeatherData([weatherDataPoint]);
+
+                Console.WriteLine("Vädermätningen har sparats i databasen.");
+            }
         }
         else
         {
