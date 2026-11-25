@@ -5,6 +5,7 @@ using System.Text;
 using System.Globalization;
 using FailSafeWeatherMonitor.ConsoleApp.Entities;
 using System.Linq.Expressions;
+using FailSafeWeatherMonitor.ConsoleApp.Services;
 
 namespace FailSafeWeatherMonitor.ConsoleApp.Data;
 
@@ -87,7 +88,7 @@ public class WeatherFileImporter(WeatherDbContext _db)
             return false;
         }
 
-        if (!double.IsFinite(temperature) || temperature < -60 || temperature > 60)
+        if (!WeatherDataValidator.IsValidTemperature(temperature))
         {
             return false;
         }
@@ -98,7 +99,7 @@ public class WeatherFileImporter(WeatherDbContext _db)
             return false;
         }
 
-        if (!double.IsFinite(humidity) || humidity < 0 || humidity > 100)
+        if (!WeatherDataValidator.IsValidHumidity(humidity))
         {
             return false;
         }
