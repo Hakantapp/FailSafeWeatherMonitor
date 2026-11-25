@@ -1,4 +1,3 @@
-﻿
 using System.Globalization;
 using FailSafeWeatherMonitor.ConsoleApp.Entities;
 using FailSafeWeatherMonitor.ConsoleApp.Services;
@@ -6,48 +5,40 @@ namespace FailSafeWeatherMonitor.ConsoleApp.Data;
 
 public class WeatherFileImporter(WeatherDataService _weatherDataService)
 {
-    public void ImportWeatherDataFromFile(string filePath)
+    public (int ImportedCount, int RejectedCount, int DuplicateCount)
+        ImportWeatherDataFromFile(string filePath)
     {
-        try
-        {
-            var lines = File.ReadAllLines(filePath);
-            var errors = new List<string>();
-            var validWeatherDataPoints = new List<WeatherDataPoint>();
-            int duplicateCount = 0;
+        var lines = File.ReadAllLines(filePath);
+        var errors = new List<string>();
+        var validWeatherDataPoints = new List<WeatherDataPoint>();
+        int duplicateCount = 0;
 
-            for (int i = 1; i < lines.Length; i++)
+        for (int i = 1; i < lines.Length; i++)
+        {
+            if (!TryCreateWeatherDataPoint(lines[i],
+                out WeatherDataPoint? weatherDataPoint))
             {
-                if (!TryCreateWeatherDataPoint(lines[i],
-                    out WeatherDataPoint? weatherDataPoint))
+                errors.Add(lines[i]);
+                continue;
+            }
+
+            if (weatherDataPoint is not null)
+            {
+                if (_weatherDataService.IsDuplicate(
+                    weatherDataPoint, validWeatherDataPoints))
                 {
-                    errors.Add(lines[i]);
+                    duplicateCount++;
                     continue;
                 }
 
-                if (weatherDataPoint is not null)
-                {
-                    if (_weatherDataService.IsDuplicate(
-                        weatherDataPoint, validWeatherDataPoints))
-                    {
-                        duplicateCount++;
-                        continue;
-                    }
-
-                    validWeatherDataPoints.Add(weatherDataPoint);
-                }
+                validWeatherDataPoints.Add(weatherDataPoint);
             }
-
-            WriteErrorLog(errors);
-            _weatherDataService.SaveWeatherData(validWeatherDataPoints);
-
-            Console.WriteLine($"Importerade mätningar: {validWeatherDataPoints.Count}");
-            Console.WriteLine($"Förkastade mätningar: {errors.Count}");
-            Console.WriteLine($"Överhoppade dubbletter: {duplicateCount}");
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Fel vid import av väderdata: {ex.Message}");
-        }
+
+        WriteErrorLog(errors);
+        _weatherDataService.SaveWeatherData(validWeatherDataPoints);
+
+        return (validWeatherDataPoints.Count, errors.Count, duplicateCount);
     }
 
     private bool TryCreateWeatherDataPoint(string line,

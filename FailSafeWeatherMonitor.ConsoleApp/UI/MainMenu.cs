@@ -36,7 +36,10 @@ public class MainMenu(
                         break;
 
                     case "Weather Data Statistics":
-                        DisplayWeatherStatistics();
+                        if (DisplayWeatherStatistics())
+                        {
+                            continue;
+                        }
                         break;
 
                     case "Exit":
@@ -57,38 +60,32 @@ public class MainMenu(
         }
     }
 
-    private static string CenterMenuText(
-        string text, int extraWidth = 0)
+    private void ShowMenuHeader(string title, bool showHeader)
     {
-        int padding = Math.Max(
-            0,
-            (Console.WindowWidth - text.Length - extraWidth) / 2);
+        if (showHeader)
+        {
+            var header = new Panel(
+                Align.Center(
+                    new Markup(
+                        "[bold white]FailSafe[/] [bold deepskyblue1]WeatherMonitor[/]\n\n" +
+                        "[white]WEATHER MONITORING SYSTEM[/]")))
+                .Border(BoxBorder.Rounded)
+                .BorderColor(Color.DeepSkyBlue1)
+                .Padding(2, 1);
 
-        return new string(' ', padding) + text;
-    }
-    private void ShowMenuHeader()
-    {
-        var header = new Panel(
-            Align.Center(
-                new Markup(
-                    "[bold white]FailSafe[/] [bold deepskyblue1]WeatherMonitor[/]\n\n" +
-                    "[white]WEATHER MONITORING SYSTEM[/]")))
-            .Border(BoxBorder.Rounded)
-            .BorderColor(Color.DeepSkyBlue1)
-            .Padding(2, 1);
-
-        AnsiConsole.Write(Align.Center(header));
-        AnsiConsole.WriteLine();
+            AnsiConsole.Write(Align.Center(header));
+            AnsiConsole.WriteLine();
+        }
 
         AnsiConsole.Write(
-            new Rule("[deepskyblue1]MAIN MENU[/]")
+            new Rule($"[deepskyblue1]{Markup.Escape(title)}[/]")
                 .RuleStyle("deepskyblue1"));
 
         AnsiConsole.WriteLine();
     }
 
     private void ShowMenuOptions(
-     string[] menuOptions, int selectedIndex)
+        string[] menuOptions, int selectedIndex)
     {
         int optionWidth = menuOptions
             .Max(option => option.Length) + 6;
@@ -124,6 +121,7 @@ public class MainMenu(
             AnsiConsole.WriteLine();
         }
     }
+
     private string SelectMenuOption()
     {
         string[] menuOptions =
@@ -134,13 +132,26 @@ public class MainMenu(
             "Exit"
         ];
 
+        return SelectOption(menuOptions, "MAIN MENU", true);
+    }
+
+    private string SelectOption(
+        string[] menuOptions, string title, bool showHeader)
+    {
         int selectedIndex = 0;
 
         while (true)
         {
             Console.Clear();
 
-            ShowMenuHeader();
+            ShowMenuHeader(title, showHeader);
+
+            if (!showHeader)
+            {
+                AnsiConsole.Write(Align.Center(
+                    new Markup("[deepskyblue1]Select a weather station[/]")));
+                AnsiConsole.WriteLine();
+            }
 
             ShowMenuOptions(menuOptions, selectedIndex);
 
@@ -172,12 +183,15 @@ public class MainMenu(
             }
         }
     }
+
     private void ReturnToMenu()
     {
         AnsiConsole.WriteLine();
+        AnsiConsole.WriteLine();
 
-        AnsiConsole.MarkupLine(
-            "[grey]Press any key to return to the main menu.[/]");
+        AnsiConsole.Write(Align.Center(new Markup(
+            "[grey]Press any key to return to the main menu.[/]")));
+        AnsiConsole.WriteLine();
 
         Console.ReadKey(true);
     }
@@ -190,25 +204,81 @@ public class MainMenu(
 
         AnsiConsole.WriteLine();
 
-        _weatherFileImporter.ImportWeatherDataFromFile(_filePath);
+        var importResult = _weatherFileImporter.ImportWeatherDataFromFile(_filePath);
+
+        ShowImportSummaryPanels(importResult);
     }
 
-    private void ShowCurrentWeather(WeatherDataPoint weatherDataPoint)
+    private void ShowImportSummaryPanels(
+        (int ImportedCount, int RejectedCount, int DuplicateCount) importResult)
     {
-        AnsiConsole.MarkupLine(
-            $"[deepskyblue1]Station:[/] {Markup.Escape(weatherDataPoint.StationName)}");
+        var table = new Table()
+            .NoBorder()
+            .HideHeaders();
 
-        AnsiConsole.MarkupLine(
-            $"[deepskyblue1]Timestamp (UTC):[/] {weatherDataPoint.Timestamp:yyyy-MM-dd HH:mm}");
+        table.AddColumn(new TableColumn(""));
+        table.AddColumn(new TableColumn(""));
+        table.AddColumn(new TableColumn(""));
 
-        AnsiConsole.MarkupLine(
-            $"[deepskyblue1]Temperature:[/] {weatherDataPoint.Temperature:F1} °C");
+        table.AddRow(
+            new Panel(Align.Center(new Markup(
+                $"[green]Imported[/]\n\n[bold green]{importResult.ImportedCount}[/]\nMeasurements")))
+                .Border(BoxBorder.Rounded).BorderColor(Color.Green).Padding(2, 1),
+            new Panel(Align.Center(new Markup(
+                $"[red]Rejected[/]\n\n[bold red]{importResult.RejectedCount}[/]\nMeasurements")))
+                .Border(BoxBorder.Rounded).BorderColor(Color.Red).Padding(2, 1),
+            new Panel(Align.Center(new Markup(
+                $"[yellow]Duplicates[/]\n\n[bold yellow]{importResult.DuplicateCount}[/]\nMeasurements")))
+                .Border(BoxBorder.Rounded).BorderColor(Color.Yellow).Padding(2, 1));
 
-        AnsiConsole.MarkupLine(
-            $"[deepskyblue1]Humidity:[/] {weatherDataPoint.Humidity:F1} %");
+        AnsiConsole.Write(Align.Center(table));
+        AnsiConsole.WriteLine();
 
-        AnsiConsole.MarkupLine(
-            $"[deepskyblue1]Data source:[/] {Markup.Escape(weatherDataPoint.DataSource)}");
+        AnsiConsole.Write(Align.Center(new Markup(
+            $"Total processed: {importResult.ImportedCount + importResult.RejectedCount + importResult.DuplicateCount} measurements")));
+    }
+
+    private void ShowLiveWeatherPanel(WeatherDataPoint weatherDataPoint)
+    {
+        var table = new Table()
+            .NoBorder()
+            .HideHeaders()
+            .Expand();
+
+        table.AddColumn(new TableColumn("").Centered());
+        table.AddColumn(new TableColumn("").Centered());
+
+        table.AddRow("[deepskyblue1]🌡[/]", "[deepskyblue1]💧[/]");
+
+        table.AddRow(
+            "[deepskyblue1]Temperature[/]",
+            "[deepskyblue1]Humidity[/]");
+
+        table.AddRow(
+            $"[bold white]{weatherDataPoint.Temperature:F1} °C[/]",
+            $"[bold white]{weatherDataPoint.Humidity:F1} %[/]");
+
+        var header = new Rows(
+            Align.Center(new Markup(
+                $"[bold deepskyblue1]{Markup.Escape(weatherDataPoint.StationName)}[/]")),
+            Align.Center(new Markup(
+                $"[grey]{weatherDataPoint.Timestamp:yyyy-MM-dd HH:mm} UTC[/]")),
+            new Rule().RuleStyle("deepskyblue1"),
+            new Markup(" "),
+            table,
+            new Markup(" "),
+            new Rule().RuleStyle("deepskyblue1"),
+            Align.Center(new Markup(
+                "[grey]Data source: Open-Meteo API[/]")));
+
+        AnsiConsole.Write(Align.Center(
+            new Panel(header)
+            {
+                Width = Math.Min(50, Console.WindowWidth)
+            }
+                .Border(BoxBorder.Rounded)
+                .BorderColor(Color.DeepSkyBlue1)
+                .Padding(2, 1)));
     }
 
     private void FetchAndSaveWeatherData()
@@ -225,27 +295,31 @@ public class MainMenu(
             weatherResponse, out var weatherDataPoint) ||
             weatherDataPoint is null)
         {
-            AnsiConsole.MarkupLine(
-                "[red]Could not retrieve valid weather data.[/]");
+            AnsiConsole.Write(Align.Center(new Markup(
+                "[red]Could not retrieve valid weather data.[/]")));
+            AnsiConsole.WriteLine();
 
             return;
         }
-        ShowCurrentWeather(weatherDataPoint);
+
+        ShowLiveWeatherPanel(weatherDataPoint);
 
         AnsiConsole.WriteLine();
 
         if (_weatherDataService.IsDuplicate(weatherDataPoint))
         {
-            AnsiConsole.MarkupLine(
-                "[yellow]This weather measurement already exists.[/]");
+            AnsiConsole.Write(Align.Center(new Markup(
+                "[yellow]Measurement already exists. No new data saved.[/]")));
+            AnsiConsole.WriteLine();
 
             return;
         }
 
         _weatherDataService.SaveWeatherData([weatherDataPoint]);
 
-        AnsiConsole.MarkupLine(
-            "[green]Weather measurement saved successfully.[/]");
+        AnsiConsole.Write(Align.Center(new Markup(
+            "[green]Weather measurement saved successfully.[/]")));
+        AnsiConsole.WriteLine();
     }
 
     private string? SelectWeatherStation()
@@ -254,34 +328,27 @@ public class MainMenu(
 
         if (stations.Count == 0)
         {
-            AnsiConsole.MarkupLine(
-                "[yellow]No weather stations found.[/]");
-
             return null;
         }
 
-        return AnsiConsole.Prompt(
-            new SelectionPrompt<string>()
-                .Title("[deepskyblue1]Select a weather station:[/]")
-                .PageSize(10)
-                .WrapAround()
-                .HighlightStyle(
-                    new Style(Color.Black, Color.DeepSkyBlue1))
-                .AddChoices(stations));
+        return SelectOption(
+            stations.ToArray(), "WEATHER DATA STATISTICS", false);
     }
-    private void ShowMeasurementsTable(
-       List<WeatherDataPoint> stationMeasurements)
+
+    private void ShowMeasurementsPanel(
+        List<WeatherDataPoint> visibleMeasurements)
     {
         var table = new Table()
             .Border(TableBorder.Rounded)
-            .BorderColor(Color.DeepSkyBlue1);
+            .BorderColor(Color.DeepSkyBlue1)
+            .Expand();
 
-        table.AddColumn("[deepskyblue1]Timestamp[/]");
-        table.AddColumn("[deepskyblue1]Temp. °C[/]");
-        table.AddColumn("[deepskyblue1]Humidity[/]");
-        table.AddColumn("[deepskyblue1]Source[/]");
+        table.AddColumn(new TableColumn("[deepskyblue1]Timestamp[/]").Centered());
+        table.AddColumn(new TableColumn("[deepskyblue1]Temp. °C[/]").Centered());
+        table.AddColumn(new TableColumn("[deepskyblue1]Humidity[/]").Centered());
+        table.AddColumn(new TableColumn("[deepskyblue1]Source[/]").Centered());
 
-        foreach (var measurement in stationMeasurements)
+        foreach (var measurement in visibleMeasurements)
         {
             table.AddRow(
                 measurement.Timestamp.ToString("yyyy-MM-dd HH:mm"),
@@ -290,10 +357,10 @@ public class MainMenu(
                 Markup.Escape(measurement.DataSource));
         }
 
-        AnsiConsole.Write(Align.Center(table));
+        AnsiConsole.Write(table);
     }
 
-    private void ShowTemperatureSummary(
+    private void ShowTemperatureSummaryPanel(
         List<WeatherDataPoint> stationMeasurements)
     {
         double? maxTemperature =
@@ -305,63 +372,112 @@ public class MainMenu(
         double? averageTemperature =
             _weatherDataService.CalculateAverageTemperature(stationMeasurements);
 
-        AnsiConsole.WriteLine();
-
-        AnsiConsole.Write(
-            new Rule("[deepskyblue1]TEMPERATURE SUMMARY[/]")
-                .RuleStyle("deepskyblue1"));
-
         var table = new Table()
-            .Border(TableBorder.Rounded)
-            .BorderColor(Color.DeepSkyBlue1);
+            .NoBorder()
+            .HideHeaders()
+            .Expand();
 
-        table.AddColumn("[red]Maximum[/]");
-        table.AddColumn("[deepskyblue1]Minimum[/]");
-        table.AddColumn("[white]Average[/]");
+        table.AddColumn(new TableColumn(""));
+        table.AddColumn(new TableColumn(""));
+        table.AddColumn(new TableColumn(""));
 
         table.AddRow(
-            $"{maxTemperature:F1} °C",
-            $"{minTemperature:F1} °C",
-            $"{averageTemperature:F1} °C");
+            new Panel(Align.Center(new Markup(
+                $"[red]Maximum[/]\n[bold white]{maxTemperature:F1} °C[/]")))
+                .Border(BoxBorder.Rounded).BorderColor(Color.Red),
+            new Panel(Align.Center(new Markup(
+                $"[deepskyblue1]Minimum[/]\n[bold white]{minTemperature:F1} °C[/]")))
+                .Border(BoxBorder.Rounded).BorderColor(Color.DeepSkyBlue1),
+            new Panel(Align.Center(new Markup(
+                $"[white]Average[/]\n[bold white]{averageTemperature:F1} °C[/]")))
+                .Border(BoxBorder.Rounded).BorderColor(Color.White));
 
-        AnsiConsole.Write(Align.Center(table));
+        AnsiConsole.Write(table);
     }
 
-    private void DisplayWeatherStatistics()
+    private int GetPageSize()
     {
-        AnsiConsole.Write(
-            new Rule("[deepskyblue1]WEATHER DATA STATISTICS[/]")
-                .RuleStyle("deepskyblue1"));
+        int availableHeight = Console.WindowHeight - 16;
+        return Math.Max(1, availableHeight);
+    }
 
-        AnsiConsole.WriteLine();
+    private void DisplayPagination(
+        int currentPage, int pageCount, int rowsPerPage,
+        List<WeatherDataPoint> stationMeasurements)
+    {
+        AnsiConsole.Write(Align.Center(new Markup(
+            $"[white]Page {currentPage + 1} of {pageCount}[/]")));
+        AnsiConsole.Write(Align.Center(new Markup(
+            $"[grey]Showing {currentPage * rowsPerPage + 1}–" +
+            $"{Math.Min((currentPage + 1) * rowsPerPage, stationMeasurements.Count)} " +
+            $"of {stationMeasurements.Count} measurements[/]")));
+        AnsiConsole.Write(Align.Center(new Markup(
+            "[grey]Left/Right: Change page · Esc: Main menu[/]")));
+    }
 
+    private bool DisplayWeatherStatistics()
+    {
         string? stationName = SelectWeatherStation();
 
         if (stationName is null)
         {
-            return;
+            Console.Clear();
+            ShowMenuHeader("WEATHER DATA STATISTICS", false);
+            AnsiConsole.MarkupLine("[yellow]No weather stations found.[/]");
+            return false;
         }
 
         List<WeatherDataPoint> stationMeasurements =
             _weatherDataService.GetStationMeasurements(stationName);
+
         if (stationMeasurements.Count == 0)
         {
-            AnsiConsole.MarkupLine(
-                "[yellow]No measurements found for this station.[/]");
-
-            return;
+            Console.Clear();
+            ShowMenuHeader("WEATHER DATA STATISTICS", false);
+            AnsiConsole.MarkupLine("[yellow]No measurements found for this station.[/]");
+            return false;
         }
 
-        AnsiConsole.WriteLine();
+        int currentPage = 0;
 
-        AnsiConsole.MarkupLine(
-            $"[bold deepskyblue1]Station: {Markup.Escape(stationName)}[/]");
+        while (true)
+        {
+            int rowsPerPage = GetPageSize();
+            int pageCount = (stationMeasurements.Count - 1) / rowsPerPage + 1;
+            currentPage = Math.Min(currentPage, pageCount - 1);
 
-        AnsiConsole.WriteLine();
+            var visibleMeasurements = stationMeasurements
+                .Skip(currentPage * rowsPerPage)
+                .Take(rowsPerPage)
+                .ToList();
 
-        ShowMeasurementsTable(stationMeasurements);
+            Console.Clear();
+            ShowMenuHeader("WEATHER DATA STATISTICS", false);
 
-        ShowTemperatureSummary(stationMeasurements);
+            AnsiConsole.Write(Align.Center(new Markup(
+                $"[bold deepskyblue1]{Markup.Escape(stationName)}[/]")));
+            AnsiConsole.Write(Align.Center(new Markup(
+                $"[grey]{stationMeasurements.Count} measurements[/]")));
+
+            ShowTemperatureSummaryPanel(stationMeasurements);
+            ShowMeasurementsPanel(visibleMeasurements);
+            DisplayPagination(currentPage, pageCount, rowsPerPage, stationMeasurements);
+
+            ConsoleKey key = Console.ReadKey(true).Key;
+
+            switch (key)
+            {
+                case ConsoleKey.LeftArrow:
+                    currentPage = Math.Max(0, currentPage - 1);
+                    break;
+
+                case ConsoleKey.RightArrow:
+                    currentPage = Math.Min(pageCount - 1, currentPage + 1);
+                    break;
+
+                case ConsoleKey.Escape:
+                    return true;
+            }
+        }
     }
 }
-
