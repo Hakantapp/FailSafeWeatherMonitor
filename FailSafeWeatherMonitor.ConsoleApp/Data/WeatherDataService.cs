@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using FailSafeWeatherMonitor.ConsoleApp.Entities;
+﻿using FailSafeWeatherMonitor.ConsoleApp.Entities;
 
 namespace FailSafeWeatherMonitor.ConsoleApp.Data;
 
