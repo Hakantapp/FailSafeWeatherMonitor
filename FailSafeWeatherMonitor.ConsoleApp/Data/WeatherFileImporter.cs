@@ -1,6 +1,6 @@
-using System.Globalization;
 using FailSafeWeatherMonitor.ConsoleApp.Entities;
 using FailSafeWeatherMonitor.ConsoleApp.Services;
+using System.Globalization;
 namespace FailSafeWeatherMonitor.ConsoleApp.Data;
 
 public class WeatherFileImporter(WeatherDataService _weatherDataService)
